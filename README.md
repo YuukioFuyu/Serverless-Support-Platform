@@ -8,7 +8,7 @@
 # Serverless Support Platform using Cloudflare Worker and Midtrans API
 **Empowering Support dan Simplifying Donations**
 
-Explore a new way to receive support with the Serverless Support Platform. Built on a serverless architecture using Cloudflare Workers and integrated with Midtrans, this platform revolutionizes how donations are handled—transparent, low-cost and highly customizable. Free from the burdens of high deductions and unnecessary complexities, this solution is designed for creators who value simplicity and efficiency. Enjoy reduced fees and automatic VAT handling. Transform your support experience today with a modern, optimized, and user-friendly platform.
+Discover a new way to receive support with the Serverless Support Platform. Built on a serverless architecture using Cloudflare Workers and integrated with Midtrans, this platform revolutionizes the way donations are handled in a transparent, low cost and highly customizable. Free from the burdens of high deductions and unnecessary complexities, this solution is designed for creators who value simplicity and efficiency. Enjoy reduced fees and automatic VAT handling. Transform your support experience today with a modern, optimized, and user friendly platform.
 
 ## Technology Stack
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=Cloudflare&logoColor=white)](#)
@@ -56,8 +56,8 @@ The `ENV` object in `worker.js` contains important settings that define how your
 2. **Optional reCAPTCHA Integration (Security):**
    If you want to add extra security to prevent spam donations, you can integrate Google reCAPTCHA. If you don’t need it, leave the fields blank.
    ```javascript
-   reCAPTCHA_SiteKey: 'YourreCAPTCHASiteKey',
-   reCAPTCHA_SecretKey: 'YourreCAPTCHASecretKey',
+   reCAPTCHA_SiteKey: 'Your-reCAPTCHA-Site-Key',
+   reCAPTCHA_SecretKey: 'Your-reCAPTCHA-Secret-Key',
    reCAPTCHA_Score: '0.5',
    ```
 
@@ -84,8 +84,8 @@ The `ENV` object in `worker.js` contains important settings that define how your
    This section is where you configure how donations are processed and displayed to users.
    ```javascript
    Donation_Name: 'Send me coffee',
-   Donation_ItemName: 'Coffe',
-   Donation_ItemThumbnail: 'https://example.com/item-image.jpg',
+   Donation_ItemName: 'Coffee',
+   Donation_ItemThumbnail: 'https://example.com/coffee.png',
    Donation_Currency: '$',
    Donation_CurrencySymbol: 'fa-dollar-sign',
    Donation_MinAmount: '1',
@@ -108,7 +108,7 @@ The `ENV` object in `worker.js` contains important settings that define how your
 The Function object in `worker.js` contains advanced settings that determine how the logic of your donation platform runs. Let's break down the configuration into stages, so you can easily set up the platform. 
 
 1. **Adjusting Fees for Payment Methods:**
-   The donation platform calculates transaction fees based on the payment method selected by the user. These fees can be adjusted by modifying the `calculateFee()` function in `worker.js`.
+   The donation platform calculates transaction  based on the payment method selected by the user. These  can be adjusted by modifying the `calculateFee()` function in `worker.js`.
    ##### The Fee options ensure that the supporter is only responsible for covering the transaction Fee charged by the Payment Gateway. If you choose to remove the Fee, you will be liable for the entire transaction Fee incurred by your supporter.
    ```javascript
    function calculateFee(amount, paymentMethod) {
@@ -154,15 +154,15 @@ The Function object in `worker.js` contains advanced settings that determine how
    **How to Modify Fees:**
    - Locate the Payment Method: Inside the switch `(paymentMethod)` block, find the payment method (e.g., 'gopay', 'credit_card').
    - Change the Fee: Modify the percentage (e.g., 0.02 for 2%) or flat fee (e.g., 4000 for Rp4000).
-     - For percentage-based fees: fee = amount * X, where X is the percentage (e.g., 0.02 for 2%).
-     - For flat fees: Simply assign a value, such as fee = 4000 for Rp4000.
+     - For percentage-based : fee = amount * X, where X is the percentage (e.g., 0.02 for 2%).
+     - For flat : Simply assign a value, such as fee = 4000 for Rp4000.
     
-   *Example:*
+     *Example:*
    
-   To change the GoPay fee from 2% to 1.5%, update:
-   ```javascript
-   fee = amount * 0.015;
-   ```
+     To change the GoPay fee from 2% to 1.5%, update:
+     ```javascript
+     fee = amount * 0.015;
+     ```
 
 2. **Adjusting VAT for Payment Methods:**
    VAT (Value-Added Tax) can be applied to certain payment methods based on the country’s tax laws. The `calculateVAT()` function calculates VAT based on the payment method and the VAT percentage set in `ENV.Donation_CountryVAT`.
@@ -255,7 +255,7 @@ The Function object in `worker.js` contains advanced settings that determine how
    
    2. **Switching to Slider Template Mode**
         If you prefer using a slider instead of boxes for preset donation amounts, follow these steps:
-        - Uncomment the Slider Template: Locate the `<!-- Template Slider -->` section and uncomment it by removing the `<!-- and -->` tags.
+        - Uncomment the Slider Template: Locate the `<!-- Template Slider -->` section and uncomment it by removing the `<!--` and `-->` tags.
           ```html
           <input type="range" id="amountSlider" min="0" max="10" value="0" step="1" class="form-range" style="width: 100%;">
           <div class="d-flex justify-content-between">
@@ -264,7 +264,7 @@ The Function object in `worker.js` contains advanced settings that determine how
           </div>
           ```
           
-        - Comment the Template Box: Comment out the entire `<!-- Template Box -->` section by adding `<!-- and -->` around it.
+        - Comment the Template Box: Comment out the entire `<!-- Template Box -->` section by adding `<!--` and `-->` around it.
           ```html
           <!--
           <div class="d-flex donation-presets">
@@ -291,7 +291,7 @@ The Function object in `worker.js` contains advanced settings that determine how
           ```javascript
           const amountMap = [2000, 5000, 10000, 20000, 30000, 50000, 100000, 200000, 300000, 500000, 1000000, 1500000];
           ```
-        - Each value in the amountMap corresponds to a step on the slider. The `min="0"` and `max="10"` in the slider represent the index of the amount in the array (e.g., 2000 is at index 0, 5000 is at index 1, and so on).
+        - Each value in the amountMap corresponds to a step on the slider. The `min="0"` and `max="10"` in the slider represent the index of the amount in the array (e.g., 2000 is at index 0, 5000 is at index 1 and so on).
 
 4. **Deploy and Test:**
    - Click the "Save and Deploy" button to deploy the worker.
