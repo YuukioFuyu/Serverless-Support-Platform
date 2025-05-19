@@ -7,7 +7,11 @@ const ENV = {
     reCAPTCHA_SiteKey: '', // Site Key from Google reCAPTCHA (Leave blank if not using reCAPTCHA)
     reCAPTCHA_SecretKey: '', // Secret Key from Google reCAPTCHA (Leave blank if not using reCAPTCHA)
     reCAPTCHA_Score: '', // Minimum score for reCAPTCHA verification (Leave blank to use default 0.5)
-    
+
+    // Firebase Realtime Database to store donation information
+    Firebase_DatabaseURL: '', // The URL endpoint of your Firebase Realtime Database (Leave blank if not using Firebase)
+    Firebase_DatabaseSecret: '', // A legacy secret key used to authenticate server-side requests to the database (Leave blank if not using Firebase)
+
     // Website metadata for SEO and social media sharing
     SEO_Favicon: '', // Favicon for the website
     SEO_Title: '', // Title of the website
@@ -116,6 +120,43 @@ function calculateVAT(amount, paymentMethod) {
 
 // Handle incoming requests and return appropriate responses
 async function handleRequest(request) {
+    const url = new URL(request.url);
+
+    // Ensures the logic only runs for POST requests to save donations to Firebase
+    if (url.pathname === '/save-donation' && request.method === 'POST') {
+    const contentType = request.headers.get('content-type') || '';
+
+    let data;
+
+    if (contentType.includes('application/json')) {
+        data = await request.json(); // for JSON
+    } else if (contentType.includes('application/x-www-form-urlencoded')) {
+        const form = await request.formData(); // for FormData
+        data = Object.fromEntries(form.entries());
+    } else {
+        return new Response('Unsupported Content-Type', { status: 415 });
+    }
+
+    // Continue saving data to Firebase
+    const donationRecord = {
+        name: data.name || "Anonymous",
+        email: data.email || "-",
+        amount: parseFloat(data.amount) || 0,
+        paymentMethod: data.paymentMethod || "unknown",
+        orderId: data.orderId || null,
+        status: data.status || "unknown",
+        timestamp: Date.now()
+    };
+
+    await saveDonationToFirebase(donationRecord);
+
+    return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+    });
+    }
+
+    // Displays the donation form on GET and protects against bots using Google reCAPTCHA verification.
     if (request.method === 'GET') {
         return new Response(donationFormHTML(), {
             headers: { 'content-type': 'text/html' }
@@ -166,7 +207,7 @@ async function handleRequest(request) {
                 'cimb_va': 'CIMB Niaga',
                 'bni_va': 'BNI',
                 'permata_va': 'Permata Bank',
-                'other_va': 'Others Bank',
+                'other_va': 'Bank Lain',
                 'indomaret': 'Indomaret',
                 'alfamart': 'Alfamart',
                 'alfamidi': 'Alfamidi',
@@ -203,6 +244,21 @@ async function handleRequest(request) {
 
         const transactionToken = await getMidTransToken(name, email, totalAmount, paymentMethod, item_details);
 
+        // Optional: Save donation data to Firebase
+        const donationRecord = {
+            name,
+            email,
+            amount,
+            paymentMethod: translatedPaymentMethod(paymentMethod),
+            fee,
+            vat,
+            totalAmount,
+            currency: ENV.Donation_Currency,
+            item: ENV.Donation_ItemName,
+            timestamp: Date.now()
+        };
+        saveDonationToFirebase(donationRecord); // Does not interrupt the process despite errors
+
         return new Response(JSON.stringify({ token: transactionToken }), {
             headers: { 'content-type': 'application/json' }
         });
@@ -228,22 +284,22 @@ const SnapEnvironment = getSnapEnvironment();
 
 // Function to generate the HTML content for the donation form page
 // This dynamically builds the page with information from the ENV object and includes payment methods, validation, and styling
-function donationFormHTML() {
-return `
-<!DOCTYPE html>
+  function donationFormHTML() {
+    return `
+    <!DOCTYPE html>
     <html lang="en">
     <head>
-        <title>${ENV.SEO_Title || "Yuuki0 Support Platform"}</title>
+        <title>${ENV.SEO_Title}</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="${ENV.SEO_Description}">
-        <meta name="keywords" content="${ENV.SEO_Keywords || "donation, support, payment, payment gateway, serverless"}">
-        <meta name="author" content="${ENV.SEO_Author || "Yuukio Fuyu"}">
+        <meta name="keywords" content="${ENV.SEO_Keywords}">
+        <meta name="author" content="${ENV.SEO_Author}">
         <meta name="robots" content="index, follow">
-        <link rel="icon" href="${ENV.SEO_Favicon || "https://yuuki0.net/assets/img/icon.png"}" type="image/x-icon">
+        <link rel="icon" href="${ENV.SEO_Favicon}" type="image/x-icon">
 
         <!-- Open Graph meta tags for social media sharing -->
-        <meta property="og:title" content="${ENV.SEO_Title || "Yuuki0 Support Platform"}">
+        <meta property="og:title" content="${ENV.SEO_Title}">
         <meta property="og:description" content="${ENV.SEO_Description}">
         <meta property="og:image" content="${ENV.SEO_Thumbnail}">
         <meta property="og:url" content="${ENV.SEO_URL}">
@@ -251,14 +307,14 @@ return `
 
         <!-- Twitter Card meta tags for Twitter sharing -->
         <meta name="twitter:card" content="${ENV.SEO_TwitterCard}">
-        <meta name="twitter:title" content="${ENV.SEO_Title || "Yuuki0 Support Platform"}">
+        <meta name="twitter:title" content="${ENV.SEO_Title}">
         <meta name="twitter:description" content="${ENV.SEO_Description}">
         <meta name="twitter:image" content="${ENV.SEO_Thumbnail}">
 
         <!-- SEO-friendly and responsive layout -->
         <link rel="canonical" href="${ENV.SEO_URL}">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="theme-color" content="${ENV.SEO_Color || "#0091ff"}">
+        <meta name="theme-color" content="${ENV.SEO_Color}">
 
         <!-- Importing fonts and necessary libraries -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -268,7 +324,7 @@ return `
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <script src="https://cdn.jsdelivr.net/npm/@tsparticles/confetti@3.0.3/tsparticles.confetti.bundle.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.3.3/tsparticles.bundle.min.js"></script>
-        <link rel="stylesheet" href="https://atugatran.github.io/FontAwesome6Pro/css/all.min.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/aquawolf04/font-awesome-pro@5cd1511/css/all.css">
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="${SnapEnvironment}" data-client-key="${ENV.Midtrans_ClientKey}"></script>
 
@@ -761,7 +817,7 @@ return `
             <form id="donationForm">
                 <!-- Page 1: Donation amount selection -->
                 <div class="page-1">
-                    <h3 class="text-center mb-5">${ENV.Donation_Name || "Support Us"}</h3>
+                    <h3 class="text-center mb-5">${ENV.Donation_Name}</h3>
                     <div class="d-flex justify-content-center">
                         <img src="${ENV.Donation_ItemThumbnail}" width="120px">
                     </div>
@@ -927,13 +983,13 @@ return `
                                     <span class="lead font-italic quotes">${ENV.PaymentSuccess_Text}</span>
                                 </p>
                             </blockquote>
-                            <figcaption class="blockquote-footer text-end mb-0">${ENV.SEO_Author || "Yuukio Fuyu"}</figcaption>
+                            <figcaption class="blockquote-footer text-end mb-0">${ENV.SEO_Author}</figcaption>
                         </div>
                     </div>
                 </div>
             </form>
         </div>
-
+  
         <!-- Modal for confirming cancellation -->
         <div class="modal fade" id="cancelPaymentModal" tabindex="-1" aria-labelledby="cancelPaymentModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
@@ -948,7 +1004,7 @@ return `
                 </div>
             </div>
         </div>
-
+  
         <!-- Modal for displaying transaction result -->
         <div class="modal fade" id="paymentStatusModal" tabindex="-1" aria-labelledby="paymentStatusModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
@@ -964,7 +1020,7 @@ return `
                 </div>
             </div>
         </div>
-
+  
         <!-- Fireworks and confetti effects containers for successful donations -->
         <div id="confetti-container" class="confetti-container"></div>
         <audio id="successAudio" src="${ENV.PaymentSuccess_Audio}"></audio>
@@ -1318,6 +1374,23 @@ return `
                     // Re-Direct to Page 3 if Payment Success (only if displaying a successful payment with displaying page 3)
                     // Callback if payment is successful
                     onSuccess: function(result) {
+                        const donationPayload = {
+                        name: $('#name').val(),
+                        email: $('#email').val(),
+                        amount: $('#amount').val(),
+                        paymentMethod: $('#paymentMethod').val(),
+                        orderId: result.order_id,
+                        status: result.transaction_status
+                        };
+                    
+                        fetch('/save-donation', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(donationPayload)
+                        });
+
                         // Redirect to Page 3 after successful payment
                         page2.classList.add('hide');
                         const page3 = document.querySelector('.page-3');
@@ -1350,7 +1423,7 @@ return `
                 }
             });
 
-            // Menangani klik tombol "Continue" untuk melanjutkan pembayaran
+            // Handle click the "Continue" button to proceed with the payment
             $('#continuePaymentBtn').on('click', function() {
                 $('#paymentStatusModal').modal('hide');
                 if (isPaymentPending && lastTransactionToken) {
@@ -1495,56 +1568,88 @@ return `
         </script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     </body>
-</html>
-`;
-}
+    </html>
+    `;
+  }
+  
+  // Function to generate the MidTrans transaction token
+  async function getMidTransToken(name, email, amount, paymentMethod, item_details) {
+    const authHeader = 'Basic ' + btoa(ENV.Midtrans_ServerKey + ':');
+  
+    // Build the transaction data object to be sent to MidTrans
+    const transactionData = {
+        transaction_details: {
+            order_id: 'support-' + Date.now(),
+            gross_amount: amount,
+        },
+        customer_details: {
+            first_name: name,
+            email: email,
+        },
+        enabled_payments: [paymentMethod],
+        item_details: item_details
+    };
 
-// Function to generate the MidTrans transaction token
-async function getMidTransToken(name, email, amount, paymentMethod, item_details) {
-const authHeader = 'Basic ' + btoa(ENV.Midtrans_ServerKey + ':');
-
-// Build the transaction data object to be sent to MidTrans
-const transactionData = {
-    transaction_details: {
-        order_id: 'support-' + Date.now(),
-        gross_amount: amount,
-    },
-    customer_details: {
-        first_name: name,
-        email: email,
-    },
-    enabled_payments: [paymentMethod],
-    item_details: item_details
-};
-
-// Function to determine which MidTrans Transactions environment to use (sandbox or production)
-async function getTransactionEnvironment() {
-    // Check if the keys start with 'SB-' to determine if it's sandbox
-    const isSandbox = ENV.Midtrans_ClientKey.startsWith('SB-') && ENV.Midtrans_ServerKey.startsWith('SB-');
-    let url;
-
-    if (isSandbox) {
-        url = 'https://app.sandbox.midtrans.com/snap/v1/transactions';
-    } else {
-        url = 'https://app.midtrans.com/snap/v1/transactions';
+    // Function to determine which MidTrans Transactions environment to use (sandbox or production)
+    async function getTransactionEnvironment() {
+        // Check if the keys start with 'SB-' to determine if it's sandbox
+        const isSandbox = ENV.Midtrans_ClientKey.startsWith('SB-') && ENV.Midtrans_ServerKey.startsWith('SB-');
+        let url;
+    
+        if (isSandbox) {
+            url = 'https://app.sandbox.midtrans.com/snap/v1/transactions';
+        } else {
+            url = 'https://app.midtrans.com/snap/v1/transactions';
+        }
+        return url;
     }
-    return url;
-}
 
-// Set the correct Transactions environment URL for use in the donation form
-const TransactionEnvironment = await getTransactionEnvironment();
+    // Set the correct Transactions environment URL for use in the donation form
+    const TransactionEnvironment = await getTransactionEnvironment();
 
-// Send the transaction data to MidTrans via a POST request
-const response = await fetch(TransactionEnvironment, {
-    method: 'POST',
-    headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(transactionData),
-});
+    // Send the transaction data to MidTrans via a POST request
+    const response = await fetch(TransactionEnvironment, {
+        method: 'POST',
+        headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transactionData),
+    });
+  
+    // Parse the JSON response to retrieve the transaction token
+    const result = await response.json();
+    return result.token;
+  }
 
-// Parse the JSON response to retrieve the transaction token
-const result = await response.json();
-return result.token;
-}
+  // Optional: save donation information to Firebase
+  async function saveDonationToFirebase(donationData) {
+    const { Firebase_DatabaseURL, Firebase_DatabaseSecret } = ENV;
+
+    // If one is blank, do not save to Firebase
+    if (!Firebase_DatabaseURL || !Firebase_DatabaseSecret) {
+    console.log("Firebase not configured. Skipping donation storage.");
+    return;
+    }
+
+    try {
+    const firebaseUrl = `${Firebase_DatabaseURL}/donations.json?auth=${Firebase_DatabaseSecret}`;
+    
+    const response = await fetch(firebaseUrl, {
+        method: "POST",
+        headers: {
+        "Content-Type": "application/json"
+        },
+        body: JSON.stringify(donationData)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.warn("Firebase save failed:", errorText);
+    } else {
+        console.log("Donation saved to Firebase.");
+    }
+    } catch (err) {
+    console.error("Error saving to Firebase:", err.message);
+    }
+  }  
