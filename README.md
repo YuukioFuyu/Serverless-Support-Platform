@@ -22,6 +22,7 @@ Discover a new way to receive support with the Serverless Support Platform. Buil
 - Bootstrap: Responsive design and user interface elements.
 - tsParticles: Confetti animation for successful donations.
 - reCAPTCHA: Optional Google reCAPTCHA integration for additional security.
+- Firebase Realtime Database: Optional server-side logging for storing donation data in real-time.
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/6f175985-42bf-49cb-a100-75f4d5ea5160)
@@ -66,7 +67,25 @@ The `ENV` object in `worker.js` contains important settings that define how your
    - Create a new site and get your Site Key and Secret Key.
    - Add them to the respective fields.
 
-3. **SEO and Social Media Sharing:**
+3. **Optional Firebase Realtime Database Integration (Database):**
+   If you want to store donation data in real-time for analytics or logging purposes, you can integrate Firebase Realtime Database. If you don’t need it, leave the fields blank.
+   ```javascript
+   Firebase_DatabaseURL: 'Your-Firebase-Database-Url',
+   Firebase_DatabaseSecret: 'Your-Firebase-Database-Secret',
+   ```
+
+   **How to get these keys:**
+   - Go to [Firebase Console](https://console.firebase.google.com).
+   - Click "Add project", provide a project name, and complete the setup process.
+   - In the left sidebar, go to Build > Realtime Database.
+   - Click "Create Database".
+   - Choose a location (e.g., `asia-southeast1`) and select Start in test mode for initial setup.
+   - Once the database is created, you will get the Database URL (example: `https://your-project-id.firebaseio.com`).
+   - After that, Go to Project Settings > Service Accounts.
+   - Scroll down to find Database Secrets (you may need to click “Learn more” to reveal this section).
+   - You will find the legacy Secret Key Database, copy them and add to their respective fields.
+
+4. **SEO and Social Media Sharing:**
    This section helps optimize how your donation page appears in search results and on social media platforms.
    ```javascript
    SEO_Favicon: 'https://example.com/favicon.ico',
@@ -80,7 +99,7 @@ The `ENV` object in `worker.js` contains important settings that define how your
    SEO_Color: '#0091ff',
    ```
 
-4. **Donation Form Settings:**
+5. **Donation Form Settings:**
    This section is where you configure how donations are processed and displayed to users.
    ```javascript
    Donation_Name: 'Send me coffee',
@@ -94,7 +113,7 @@ The `ENV` object in `worker.js` contains important settings that define how your
    Donation_CountryVAT: '10',
    ```
 
-5. **Success Page Configuration:**
+6. **Success Page Configuration:**
    These settings allow you to customize the experience after a successful donation, such as showing confetti, playing audio or displaying a thank you message.
    ```javascript
    PaymentSuccess_Text: 'Thank you for your support!',
