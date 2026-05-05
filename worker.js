@@ -1590,27 +1590,51 @@ body, html {
         // Preload celebration media on page load for instant playback
         const celebrationAudio = document.getElementById('successAudio');
         const celebrationVideo = document.getElementById('celebrationVideo');
-        let mediaReady = false;
+
+        // Check if media elements are actually buffered right now
+        function isMediaBuffered() {
+            if (CONFIG.enableAudio && celebrationAudio && celebrationAudio.readyState < 3) return false;
+            if (CONFIG.showVideo && celebrationVideo && celebrationVideo.readyState < 3) return false;
+            return true;
+        }
 
         function preloadCelebrationMedia() {
-            const checks = [];
-            if (CONFIG.enableAudio && celebrationAudio) {
-                celebrationAudio.load();
-                checks.push(new Promise(r => {
-                    if (celebrationAudio.readyState >= 3) return r();
-                    celebrationAudio.addEventListener('canplaythrough', r, { once: true });
-                }));
-            }
-            if (CONFIG.showVideo && celebrationVideo) {
-                celebrationVideo.load();
-                checks.push(new Promise(r => {
-                    if (celebrationVideo.readyState >= 3) return r();
-                    celebrationVideo.addEventListener('canplaythrough', r, { once: true });
-                }));
-            }
-            Promise.all(checks).then(() => { mediaReady = true; });
+            if (CONFIG.enableAudio && celebrationAudio) celebrationAudio.load();
+            if (CONFIG.showVideo && celebrationVideo) celebrationVideo.load();
         }
         preloadCelebrationMedia();
+
+        // Keep media warm — browsers evict buffered data after long idle periods
+        // Re-prime every 30 seconds so the buffer never goes stale
+        setInterval(() => {
+            if (CONFIG.enableAudio && celebrationAudio && celebrationAudio.readyState < 3) {
+                celebrationAudio.load();
+            }
+            if (CONFIG.showVideo && celebrationVideo && celebrationVideo.readyState < 3) {
+                celebrationVideo.load();
+            }
+        }, 30000);
+
+        // Wait until all enabled media elements are buffered (readyState >= 3)
+        function waitForMediaReady() {
+            return new Promise(resolve => {
+                const checks = [];
+                if (CONFIG.enableAudio && celebrationAudio && celebrationAudio.readyState < 3) {
+                    celebrationAudio.load();
+                    checks.push(new Promise(r => {
+                        celebrationAudio.addEventListener('canplaythrough', r, { once: true });
+                    }));
+                }
+                if (CONFIG.showVideo && celebrationVideo && celebrationVideo.readyState < 3) {
+                    celebrationVideo.load();
+                    checks.push(new Promise(r => {
+                        celebrationVideo.addEventListener('canplaythrough', r, { once: true });
+                    }));
+                }
+                if (checks.length === 0) return resolve();
+                Promise.all(checks).then(resolve);
+            });
+        }
 
         // Celebration: Confetti + Video + Audio — Synchronized
         function triggerCelebration() {
@@ -1671,27 +1695,16 @@ body, html {
                 if (CONFIG.enableConfetti) runCelebrationConfetti();
             }
 
-            if (mediaReady) {
-                // Media already buffered — instant fire! No delay.
+            // Always re-validate buffer state at trigger time
+            if (isMediaBuffered()) {
+                // Media still buffered — instant fire!
                 fireCelebration();
             } else {
-                // Media not ready — dim the stage lights while waiting
+                // Buffer evicted (e.g. long idle) — dim stage while re-buffering
                 if (dimming) dimming.classList.add('active');
                 const fallback = setTimeout(() => { fireCelebration(); }, 4000);
-                const checks = [];
-                if (CONFIG.enableAudio && celebrationAudio && celebrationAudio.readyState < 3) {
-                    checks.push(new Promise(r => {
-                        celebrationAudio.addEventListener('canplaythrough', r, { once: true });
-                    }));
-                }
-                if (CONFIG.showVideo && celebrationVideo && celebrationVideo.readyState < 3) {
-                    checks.push(new Promise(r => {
-                        celebrationVideo.addEventListener('canplaythrough', r, { once: true });
-                    }));
-                }
-                Promise.all(checks).then(() => {
+                waitForMediaReady().then(() => {
                     clearTimeout(fallback);
-                    mediaReady = true;
                     fireCelebration();
                 });
             }
